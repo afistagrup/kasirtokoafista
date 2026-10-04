@@ -792,14 +792,12 @@
                 footerMessage: ''
             },
 
+            // Perbaiki bagian employees (cukup satu saja, atau gunakan cadangan data lokal jika cloud kosong)
             employees: [
-                { id: 1, username: 'kasir', name: 'Kasir Toko', role: 'karyawan', password: '123' },
-                { id: 2, username: 'owner', name: 'Owner Toko', role: 'owner', password: '123' }
+                 { id: 1, username: 'afifah', name: 'owner toko', role: 'owner', password: '234' },
+                 { id: 2, username: 'khusnul', name: 'khusnul', role: 'karyawan', password: '123' }
             ],
-employees: [
-    { id: 1, username: 'afifah', name: 'owner toko', role: 'owner', password: '234' },
-    { id: 2, username: 'khusnul', name: 'khusnul', role: 'karyawan', password: '123' }
-],
+
             newEmployee: { username: '', name: '', password: '123', role: 'karyawan' },
 
             // === TAMBAHAN FUNGSI INIT (Dijalankan saat halaman pertama kali dibuka) ===
@@ -816,7 +814,13 @@ employees: [
                     
                     this.products = result.products || [];
                     this.transactions = result.transactions || [];
-                    this.employees = result.employees || [];
+                    
+                    // Gunakan data dari cloud HANYA JIKA datanya ada isinya, 
+                    // agar data lokal tidak tertimpa kosong jika sheet employees bermasalah
+                    if (result.employees && result.employees.length > 0) {
+                        this.employees = result.employees;
+                    }
+                    
                     this.storeProfile = result.storeProfile || this.storeProfile;
                 } catch (error) {
                     console.error('Gagal memuat data dari cloud:', error);
@@ -831,7 +835,7 @@ employees: [
                 let u = this.loginForm.username.trim().toLowerCase();
                 let p = this.loginForm.password.trim();
 
-                let foundEmp = this.employees.find(e => e.username.toLowerCase() === u && e.password === p);
+                let foundEmp = this.employees.find(e => e.username.toLowerCase() === u && e.password == p);
 
                 if (foundEmp) {
                     this.currentUser = { name: foundEmp.name, role: foundEmp.role };
@@ -840,7 +844,6 @@ employees: [
                     this.loginError = 'Username atau password salah!';
                 }
             },
-
             finishLogin() {
                 this.isLoggedIn = true;
                 localStorage.setItem('pos_logged_in', 'true');
