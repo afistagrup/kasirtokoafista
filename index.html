@@ -748,7 +748,7 @@
         return {
             // === KONFIGURASI CLOUD GOOGLE SHEETS ===
             loading: false,
-            webAppUrl: 'https://script.google.com/macros/s/AKfycbwxySa9-9sDkGsnMcCh52Bu-vv-Tn_ryLP7AoKbnyM-OvM2GzOKU0336dOfqX8SQyVgzQ/exec', // Diperbaiki dari https:https:// menjadi https://
+            webAppUrl: 'https://script.google.com/macros/s/AKfycbzDg4nKyhtYnyaV5kz1WoMf7W2ijTvjnmk3LO248OHL5eusvKMGTk5KLwK4YSn_laFlJA/exec', // Diperbaiki dari https:https:// menjadi https://
 
             isLoggedIn: localStorage.getItem('pos_logged_in') === 'true',
             currentUser: JSON.parse(localStorage.getItem('pos_current_user')) || { name: '', role: '' },
@@ -1183,13 +1183,13 @@
                 this.modalMessage = 'Produk berhasil dihapus.';
             },
 
-            restockProduct() {
+            async restockProduct() {
                 if (this.currentUser.role !== 'owner') {
                     this.modalMessage = 'Hanya owner yang dapat menambah stok!';
                     return;
                 }
 
-                let kw = (this.restockForm.keyword || '').trim().toLowerCase();
+                let kw = (this.restockForm.keyword || '').trim();
                 let qtyToAdd = parseInt(this.restockForm.addStock) || 0;
 
                 if (!kw || qtyToAdd <= 0) {
@@ -1198,8 +1198,9 @@
                 }
 
                 let found = this.products.find(p => 
-                    (p.barcode && p.barcode.toLowerCase() === kw) || 
-                    p.name.toLowerCase().includes(kw)
+                    (p.barcode && p.barcode.toLowerCase() === kw.toLowerCase()) || 
+                    p.name.toLowerCase().includes(kw.toLowerCase()) ||
+                    p.id == kw
                 );
 
                 if (found) {
@@ -1208,13 +1209,39 @@
                         return;
                     }
 
+                    // Update lokal dulu agar responsif
                     found.stock += qtyToAdd;
-                    this.modalMessage = `Berhasil! Stok "${found.name}" bertambah ${qtyToAdd}. Total stok sekarang: ${found.stock}`;
+                    let keywordUsed = found.barcode || found.name;
+
+                    this.modalMessage = 'Menyimpan perubahan stok ke cloud...';
+
+                    // Kirim ke Google Apps Script
+                    try {
+                        let response = await fetch(this.webAppUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({
+                                action: 'updateStock',
+                                keyword: keywordUsed,
+                                addStock: qtyToAdd
+                            })
+                        });
+                        let res = await response.json();
+                        if (res.status === 'success') {
+                            this.modalMessage = `Berhasil! Stok "${found.name}" bertambah ${qtyToAdd} (Tersimpan di Cloud). Total stok: ${found.stock}`;
+                        } else {
+                            this.modalMessage = 'Gagal sinkronisasi stok ke cloud: ' + res.message;
+                        }
+                    } catch (err) {
+                        console.error('Error restock:', err);
+                        this.modalMessage = 'Terjadi kesalahan jaringan saat update stok.';
+                    }
+
                     this.restockForm = { keyword: '', addStock: 0 };
                 } else {
                     this.modalMessage = `Produk dengan keyword "${this.restockForm.keyword}" tidak ditemukan!`;
                 }
-            }
+            },
         }
     }
 </script>
