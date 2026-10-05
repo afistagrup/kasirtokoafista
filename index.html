@@ -1189,7 +1189,7 @@
                     return;
                 }
 
-                let kw = (this.restockForm.keyword || '').trim();
+                let kw = String(this.restockForm.keyword || '').trim();
                 let qtyToAdd = parseInt(this.restockForm.addStock) || 0;
 
                 if (!kw || qtyToAdd <= 0) {
@@ -1197,25 +1197,28 @@
                     return;
                 }
 
-                let found = this.products.find(p => 
-                    (p.barcode && p.barcode.toLowerCase() === kw.toLowerCase()) || 
-                    p.name.toLowerCase().includes(kw.toLowerCase()) ||
-                    p.id == kw
-                );
+                let found = this.products.find(p => {
+                    let bCode = p.barcode !== null && p.barcode !== undefined ? String(p.barcode).trim().toLowerCase() : '';
+                    let pName = p.name !== null && p.name !== undefined ? String(p.name).trim().toLowerCase() : '';
+                    let pId = String(p.id).trim();
+
+                    return (bCode && bCode === kw.toLowerCase()) || 
+                           (pName && pName.includes(kw.toLowerCase())) || 
+                           (pId === kw);
+                });
 
                 if (found) {
-                    if (found.category !== 'atk') {
+                    if (found.category && found.category !== 'atk') {
                         this.modalMessage = `Produk "${found.name}" adalah jasa!`;
                         return;
                     }
 
-                    // Update lokal dulu agar responsif
-                    found.stock += qtyToAdd;
+                    // Update lokal agar responsif
+                    found.stock = (Number(found.stock) || 0) + qtyToAdd;
                     let keywordUsed = found.barcode || found.name;
 
                     this.modalMessage = 'Menyimpan perubahan stok ke cloud...';
 
-                    // Kirim ke Google Apps Script
                     try {
                         let response = await fetch(this.webAppUrl, {
                             method: 'POST',
@@ -1228,7 +1231,7 @@
                         });
                         let res = await response.json();
                         if (res.status === 'success') {
-                            this.modalMessage = `Berhasil! Stok "${found.name}" bertambah ${qtyToAdd} (Tersimpan di Cloud). Total stok: ${found.stock}`;
+                            this.modalMessage = `Berhasil! Stok "${found.name}" bertambah ${qtyToAdd}. Total stok: ${found.stock}`;
                         } else {
                             this.modalMessage = 'Gagal sinkronisasi stok ke cloud: ' + res.message;
                         }
