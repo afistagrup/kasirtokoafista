@@ -843,7 +843,58 @@
                 } else {
                     this.loginError = 'Username atau password salah!';
                 }
+                handleLogin() {
+                this.loginError = '';
+                let u = this.loginForm.username.trim().toLowerCase();
+                let p = this.loginForm.password.trim();
+
+                let foundEmp = this.employees.find(e => e.username.toLowerCase() === u && e.password == p);
+
+                if (foundEmp) {
+                    this.currentUser = { name: foundEmp.name, role: foundEmp.role };
+                    this.finishLogin();
+                } else {
+                    this.loginError = 'Username atau password salah!';
+                }
             },
+
+            // --- TEMPELKAN FUNGSI TAMBAH PRODUK DI SINI ---
+            async addProduct() {
+                if (!this.newProduct.name || this.newProduct.price <= 0) {
+                    alert('Nama produk dan harga jual harus diisi!');
+                    return;
+                }
+
+                // Buat ID unik
+                this.newProduct.id = 'PRD-' + Date.now();
+
+                // Masukkan ke array lokal
+                this.products.push({ ...this.newProduct });
+
+                // Kirim ke Google Apps Script
+                try {
+                    let response = await fetch(this.webAppUrl, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'addProduct',
+                            product: this.newProduct
+                        })
+                    });
+                    let res = await response.json();
+                    if (res.status === 'success') {
+                        alert('Produk berhasil disimpan ke Cloud Google Sheets!');
+                    } else {
+                        alert('Gagal menyimpan ke cloud: ' + res.message);
+                    }
+                } catch (err) {
+                    console.error('Error:', err);
+                    alert('Terjadi kesalahan koneksi ke cloud.');
+                }
+
+                // Reset form
+                this.newProduct = { barcode: '', name: '', category: 'atk', purchasePrice: 0, price: 0, stock: 0 };
+            },
+            
             finishLogin() {
                 this.isLoggedIn = true;
                 localStorage.setItem('pos_logged_in', 'true');
