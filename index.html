@@ -81,7 +81,13 @@
             </div>
         </div>
     </template>
-
+<!-- Indikator Online / Offline -->
+<div class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium border"
+     :class="isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
+    <span class="w-2.5 h-2.5 rounded-full animate-pulse"
+          :class="isOnline ? 'bg-green-500' : 'bg-red-500'"></span>
+    <span x-text="isOnline ? 'Online (Live Sync)' : 'Offline (Mode Lokal)'"></span>
+</div>
     <!-- HALAMAN UTAMA APLIKASI (Jika sudah login) -->
     <template x-if="isLoggedIn">
         <div class="min-h-screen flex flex-col">
@@ -748,7 +754,10 @@
         return {
             // === KONFIGURASI CLOUD GOOGLE SHEETS ===
             loading: false,
-            webAppUrl: 'https://script.google.com/macros/s/AKfycbzDg4nKyhtYnyaV5kz1WoMf7W2ijTvjnmk3LO248OHL5eusvKMGTk5KLwK4YSn_laFlJA/exec', // Diperbaiki dari https:https:// menjadi https://
+            webAppUrl: 'https://script.google.com/macros/s/AKfycbzDg4nKyhtYnyaV5kz1WoMf7W2ijTvjnmk3LO248OHL5eusvKMGTk5KLwK4YSn_laFlJA/exec',
+
+            // === VARIABEL STATUS KONEKSI (BARU) ===
+            isOnline: navigator.onLine,
 
             isLoggedIn: localStorage.getItem('pos_logged_in') === 'true',
             currentUser: JSON.parse(localStorage.getItem('pos_current_user')) || { name: '', role: '' },
@@ -798,9 +807,33 @@
 
             newEmployee: { username: '', name: '', password: '123', role: 'karyawan' },
 
-            // === FUNGSI INIT ===
+            // === FUNGSI INIT (DIPERBARUI DENGAN LISTENER KONEKSI) ===
             async init() {
+                // Pasang event listener untuk deteksi online/offline browser
+                window.addEventListener('online', () => { this.isOnline = true; });
+                window.addEventListener('offline', () => { this.isOnline = false; });
+                
+                // Opsional: Cek berkala koneksi ke server Apps Script (tiap 30 detik)
+                setInterval(() => {
+                    this.pingServer();
+                }, 30000);
+
                 await this.fetchDataFromCloud();
+            },
+
+            // === FUNGSI PENGECEKAN KONEKSI SERVER (BARU) ===
+            async pingServer() {
+                if (!navigator.onLine) {
+                    this.isOnline = false;
+                    return;
+                }
+                try {
+                    // Menggunakan mode no-cors untuk melakukan ping ringan ke Web App URL
+                    await fetch(this.webAppUrl + '?action=ping', { method: 'GET', mode: 'no-cors' });
+                    this.isOnline = true;
+                } catch (err) {
+                    this.isOnline = false;
+                }
             },
 
             // === FUNGSI AMBIL DATA DARI GOOGLE SHEETS ===
@@ -818,8 +851,10 @@
                     }
                     
                     this.storeProfile = result.storeProfile || this.storeProfile;
+                    this.isOnline = true; // Berhasil terhubung ke cloud
                 } catch (error) {
                     console.error('Gagal memuat data dari cloud:', error);
+                    this.isOnline = false; // Gagal terhubung
                     this.modalMessage = 'Gagal terhubung ke database cloud!';
                 } finally {
                     this.loading = false;
@@ -862,6 +897,7 @@
                 try {
                     let response = await fetch(this.webAppUrl, {
                         method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         body: JSON.stringify({
                             action: 'addProduct',
                             product: this.newProduct
@@ -1121,11 +1157,13 @@
                         this.paymentMethod = 'tunai';
                         this.customer = { name: '', phone: '' };
                         this.modalMessage = 'Transaksi berhasil disimpan ke cloud!';
+                        this.isOnline = true;
                     } else {
                         this.modalMessage = 'Gagal menyimpan transaksi: ' + (result.message || 'Error');
                     }
                 } catch (error) {
                     console.error('Error checkout:', error);
+                    this.isOnline = false;
                     this.modalMessage = 'Terjadi kesalahan jaringan saat menyimpan transaksi.';
                 }
             },
@@ -1232,11 +1270,13 @@
                         let res = await response.json();
                         if (res.status === 'success') {
                             this.modalMessage = `Berhasil! Stok "${found.name}" bertambah ${qtyToAdd}. Total stok: ${found.stock}`;
+                            this.isOnline = true;
                         } else {
                             this.modalMessage = 'Gagal sinkronisasi stok ke cloud: ' + res.message;
                         }
                     } catch (err) {
                         console.error('Error restock:', err);
+                        this.isOnline = false;
                         this.modalMessage = 'Terjadi kesalahan jaringan saat update stok.';
                     }
 
