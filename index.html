@@ -1220,6 +1220,39 @@
                 this.products.splice(index, 1);
                 this.modalMessage = 'Produk berhasil dihapus.';
             },
+            // === FUNGSI SIMPAN PROFIL TOKO KE CLOUD (PERBARUI INI) ===
+            async saveStoreProfile() {
+                if (this.currentUser.role !== 'owner') {
+                    this.modalMessage = 'Hanya owner yang dapat mengubah profil toko!';
+                    return;
+                }
+
+                // Simpan ke localStorage juga untuk cache lokal
+                localStorage.setItem('pos_store_profile', JSON.stringify(this.storeProfile));
+                this.modalMessage = 'Menyimpan profil toko ke cloud...';
+
+                try {
+                    let response = await fetch(this.webAppUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'saveStoreProfile',
+                            storeProfile: this.storeProfile
+                        })
+                    });
+                    let res = await response.json();
+                    if (res.status === 'success') {
+                        this.modalMessage = 'Profil toko berhasil disimpan permanen ke Cloud Google Sheets!';
+                        this.isOnline = true;
+                    } else {
+                        this.modalMessage = 'Gagal menyimpan ke cloud: ' + (res.message || 'Error');
+                    }
+                } catch (err) {
+                    console.error('Error save store profile:', err);
+                    this.isOnline = false;
+                    this.modalMessage = 'Terjadi kesalahan jaringan saat menyimpan profil toko.';
+                }
+            },
 
             async restockProduct() {
                 if (this.currentUser.role !== 'owner') {
